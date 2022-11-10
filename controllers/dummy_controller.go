@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	quayiov1alpha1 "github.com/souvikhaldar/dummy-operator/api/v1alpha1"
+	souvikhaldarinv1alpha1 "github.com/souvikhaldar/dummy-operator/api/v1alpha1"
 )
 
 // DummyReconciler reconciles a Dummy object
@@ -33,9 +33,9 @@ type DummyReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=quay.io,resources=dummies,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=quay.io,resources=dummies/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=quay.io,resources=dummies/finalizers,verbs=update
+//+kubebuilder:rbac:groups=souvikhaldar.in,resources=dummies,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=souvikhaldar.in,resources=dummies/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=souvikhaldar.in,resources=dummies/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -57,6 +57,6 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // SetupWithManager sets up the controller with the Manager.
 func (r *DummyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&quayiov1alpha1.Dummy{}).
+		For(&souvikhaldarinv1alpha1.Dummy{}).
 		Complete(r)
 }

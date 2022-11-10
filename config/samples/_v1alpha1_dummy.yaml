@@ -1,4 +1,4 @@
-apiVersion: quay.io/v1alpha1
+apiVersion: souvikhaldar.in/v1alpha1
 kind: Dummy
 metadata:
   labels:

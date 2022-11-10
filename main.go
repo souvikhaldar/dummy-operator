@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	quayiov1alpha1 "github.com/souvikhaldar/dummy-operator/api/v1alpha1"
+	souvikhaldarinv1alpha1 "github.com/souvikhaldar/dummy-operator/api/v1alpha1"
 	"github.com/souvikhaldar/dummy-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(quayiov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(souvikhaldarinv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -71,7 +71,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "d1687da7.quay.io",
+		LeaderElectionID:       "d1687da7.souvikhaldar.in",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
