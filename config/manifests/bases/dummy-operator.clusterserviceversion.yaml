@@ -1,0 +1,47 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: dummy-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Dummy is the Schema for the dummies API
+      displayName: Dummy
+      kind: Dummy
+      name: dummies.souvikhaldar.in
+      version: v1alpha1
+  description: Dummy operator for anynines interview
+  displayName: dummy-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - dummy
+  links:
+  - name: Dummy Operator
+    url: https://dummy-operator.domain
+  maintainers:
+  - email: souvikhaldar32@gmail.com
+    name: souvik
+  maturity: alpha
+  provider:
+    name: Souvik
+  version: 0.0.0

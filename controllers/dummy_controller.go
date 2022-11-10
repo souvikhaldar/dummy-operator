@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,9 +48,19 @@ type DummyReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
 	// TODO(user): your logic here
+	log := log.FromContext(ctx)
+	log.Info("Running in Reconcile...")
+	dummy := &souvikhaldarinv1alpha1.Dummy{}
+	err := r.Get(ctx, req.NamespacedName, dummy)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("Dummy resource not found")
+			return ctrl.Result{}, nil
+		}
+		log.Info("Failed to get dummy", err)
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

@@ -9,4 +9,4 @@ metadata:
     app.kubernetes.io/created-by: dummy-operator
   name: dummy-sample
 spec:
-  # TODO(user): Add fields here
+  message: "I'm just a dummy"
