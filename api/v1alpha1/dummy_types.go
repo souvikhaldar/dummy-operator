@@ -29,12 +29,17 @@ type DummySpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	Message string `json:"message,omitempty"`
+	// Number of replicas for the Nginx Pods
+	ReplicaCount int32 `json:"replicaCount"`
+	// Exposed port for the Nginx server
+	Port int32 `json:"port"`
 }
 
 // DummyStatus defines the observed state of Dummy
 type DummyStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	SpecEcho string `json:"specEcho,omitempty"`
 }
 
 //+kubebuilder:object:root=true

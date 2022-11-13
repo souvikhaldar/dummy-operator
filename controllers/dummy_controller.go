@@ -18,9 +18,18 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,7 +59,9 @@ type DummyReconciler struct {
 func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// TODO(user): your logic here
 	log := log.FromContext(ctx)
-	log.Info("Running in Reconcile...")
+	log.Info("⚡️ Event received! ⚡️")
+	log.Info("Request: ", "req", req)
+
 	dummy := &souvikhaldarinv1alpha1.Dummy{}
 	err := r.Get(ctx, req.NamespacedName, dummy)
 	if err != nil {
@@ -62,6 +73,45 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// copy the value of `message` of `spec` into `specEcho` of `status`
+	dummy.Status.SpecEcho = dummy.Spec.Message
+
+	// Check if the deployment already exists, if not create a new one
+	found := &appsv1.Deployment{}
+	err = r.Get(
+		ctx,
+		types.NamespacedName{
+			Name:      dummy.Name,
+			Namespace: dummy.Namespace,
+		},
+		found,
+	)
+	if err != nil && apierrors.IsNotFound(err) {
+		// define a new deployment
+		dep, err := r.deploymentForDummy(dummy)
+		if err != nil {
+			log.Error(err, "Failed to define new Deployment resource for dummy")
+
+			return ctrl.Result{}, err
+		}
+		log.Info("Creating a new Deployment",
+			"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		if err = r.Create(ctx, dep); err != nil {
+			log.Error(err, "Failed to create new Deployment",
+				"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			return ctrl.Result{}, err
+		}
+		// Deployment created successfully
+		// We will requeue the reconciliation so that we can ensure the state
+		// and move forward for the next operations
+		return ctrl.Result{RequeueAfter: time.Minute}, nil
+
+	} else if err != nil {
+		log.Error(err, "Failed to get Deployment")
+		// Let's return the error for the reconciliation be re-trigged again
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -70,4 +120,64 @@ func (r *DummyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&souvikhaldarinv1alpha1.Dummy{}).
 		Complete(r)
+}
+
+// deploymentForDummy returns a Memcached Deployment object
+func (r *DummyReconciler) deploymentForDummy(
+	dummy *souvikhaldarinv1alpha1.Dummy) (*appsv1.Deployment, error) {
+
+	// Get the Operand image
+	//image, err := imageForDummy()
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	// TODO: Remove hardcoding
+	image := "nginx:alpine"
+
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dummy.Name,
+			Namespace: dummy.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &dummy.Spec.ReplicaCount,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "dummy-nginx-server"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "dummy-nginx-server"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: image,
+						Name:  "dummy-nginx",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: dummy.Spec.Port,
+							Name:          "http",
+							Protocol:      "TCP",
+						}},
+					}},
+				},
+			},
+		},
+	}
+	// Set the ownerRef for the Deployment
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
+	if err := ctrl.SetControllerReference(dummy, dep, r.Scheme); err != nil {
+		return nil, err
+	}
+	return dep, nil
+}
+
+// imageForMemcached gets the Operand image which is managed by this controller
+// from the DUMMY_IMAGE environment variable defined in the config/manager/manager.yaml
+func imageForDummy() (string, error) {
+	var imageEnvVar = "DUMMY_IMAGE"
+	image, found := os.LookupEnv(imageEnvVar)
+	if !found {
+		return "", fmt.Errorf("Unable to find %s environment variable with the image", imageEnvVar)
+	}
+	return image, nil
 }

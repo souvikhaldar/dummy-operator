@@ -10,3 +10,6 @@ metadata:
   name: dummy-sample
 spec:
   message: "I'm just a dummy"
+  replicaCount: 3
+  port: 80
+

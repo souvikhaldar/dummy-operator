@@ -72,6 +72,9 @@ spec:
         - --leader-elect
         image: souvikhaldar11/dummy-operetor
         name: manager
+        env:
+        - name: DUMMY_IMAGE 
+          value: nginx:alpine
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
