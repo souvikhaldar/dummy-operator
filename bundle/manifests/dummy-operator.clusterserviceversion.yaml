@@ -18,7 +18,9 @@ metadata:
             "name": "dummy-sample"
           },
           "spec": {
-            "message": "I'm just a dummy"
+            "message": "I'm just a dummy",
+            "port": 80,
+            "replicaCount": 3
           }
         }
       ]
@@ -153,6 +155,9 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
+                env:
+                - name: DUMMY_IMAGE
+                  value: nginx:alpine
                 image: souvikhaldar11/dummy-operetor
                 livenessProbe:
                   httpGet:

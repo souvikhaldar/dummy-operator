@@ -18,12 +18,10 @@ package controllers
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,29 +45,53 @@ type DummyReconciler struct {
 //+kubebuilder:rbac:groups=souvikhaldar.in,resources=dummies/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=souvikhaldar.in,resources=dummies/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Dummy object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// TODO(user): your logic here
 	log := log.FromContext(ctx)
 	log.Info("⚡️ Event received! ⚡️")
 	log.Info("Request: ", "req", req)
 
 	dummy := &souvikhaldarinv1alpha1.Dummy{}
+
+	// Create a deployment for the nginx pod
+	existingDummyDeployment := &appsv1.Deployment{}
+
+	// Fetch the dummy instance
 	err := r.Get(ctx, req.NamespacedName, dummy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Dummy resource not found")
+			// The CR is not found. Either it is deleted or not applied
+			// to the cluster, hence should stop reconciliation.
+			log.Info("Dummy resource not found, stopping reconciliation")
+
+			// now let's check if the deployment for dummy exists. If it does
+			// it needs to be deleted
+			err = r.Get(
+				ctx,
+				types.NamespacedName{
+					Name:      dummy.Name,
+					Namespace: dummy.Namespace,
+				},
+				existingDummyDeployment,
+			)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					log.Info("Deployment not found, stoping reconciliation")
+					return ctrl.Result{}, nil
+				} else {
+					log.Error(err, "Failed to get the deployment")
+					return ctrl.Result{}, err
+				}
+			} else {
+				log.Info("Deployment exists, need to delete it")
+				if err := r.Delete(ctx, existingDummyDeployment); err != nil {
+					log.Error(err, "Error in deleting the deployment")
+					return ctrl.Result{}, err
+				}
+			}
+
 			return ctrl.Result{}, nil
 		}
-		log.Info("Failed to get dummy", err)
+		log.Info("Failed to get dummy instance", err)
 		return ctrl.Result{}, err
 	}
 
@@ -77,42 +99,68 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	dummy.Status.SpecEcho = dummy.Spec.Message
 
 	// Check if the deployment already exists, if not create a new one
-	found := &appsv1.Deployment{}
 	err = r.Get(
 		ctx,
 		types.NamespacedName{
 			Name:      dummy.Name,
 			Namespace: dummy.Namespace,
 		},
-		found,
+		existingDummyDeployment,
 	)
 	if err != nil && apierrors.IsNotFound(err) {
 		// define a new deployment
-		dep, err := r.deploymentForDummy(dummy)
+		newDummyDeployment, err := r.deploymentForDummy(dummy)
 		if err != nil {
 			log.Error(err, "Failed to define new Deployment resource for dummy")
 
 			return ctrl.Result{}, err
 		}
-		log.Info("Creating a new Deployment",
-			"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-		if err = r.Create(ctx, dep); err != nil {
-			log.Error(err, "Failed to create new Deployment",
-				"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		log.Info(
+			"Creating a new Deployment",
+			"Deployment.Namespace",
+			newDummyDeployment.Namespace,
+			"Deployment.Name",
+			newDummyDeployment.Name,
+		)
+		if err = r.Create(ctx, newDummyDeployment); err != nil {
+			log.Error(
+				err,
+				"Failed to create new Deployment",
+				"Deployment.Namespace",
+				newDummyDeployment.Namespace,
+				"Deployment.Name",
+				newDummyDeployment.Name,
+			)
 			return ctrl.Result{}, err
 		}
-		// Deployment created successfully
-		// We will requeue the reconciliation so that we can ensure the state
-		// and move forward for the next operations
-		return ctrl.Result{RequeueAfter: time.Minute}, nil
 
 	} else if err != nil {
 		log.Error(err, "Failed to get Deployment")
 		// Let's return the error for the reconciliation be re-trigged again
 		return ctrl.Result{}, err
+	} else if err == nil {
+		// Deployment exists, check if it needs to be updated
+		if *existingDummyDeployment.Spec.Replicas != dummy.Spec.ReplicaCount {
+			existingDummyDeployment.Spec.Replicas = &dummy.Spec.ReplicaCount
+			if err := r.Update(
+				ctx,
+				existingDummyDeployment,
+			); err != nil {
+				log.Error(
+					err,
+					"Failed to updated deployment",
+					"Deployment.Namespace",
+					existingDummyDeployment.Namespace,
+					"Deployment.Name",
+					existingDummyDeployment.Name,
+				)
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
 	return ctrl.Result{}, nil
+
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -122,20 +170,16 @@ func (r *DummyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// deploymentForDummy returns a Memcached Deployment object
+// deploymentForDummy returns a dummy Deployment object
 func (r *DummyReconciler) deploymentForDummy(
-	dummy *souvikhaldarinv1alpha1.Dummy) (*appsv1.Deployment, error) {
+	dummy *souvikhaldarinv1alpha1.Dummy,
+) (*appsv1.Deployment, error) {
 
-	// Get the Operand image
-	//image, err := imageForDummy()
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	// TODO: Remove hardcoding
+	// TODO: Remove hardcoding and use env var
 	image := "nginx:alpine"
+	//image := "ovhplatform/hello:1.0"
 
-	dep := &appsv1.Deployment{
+	newDummyDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dummy.Name,
 			Namespace: dummy.Namespace,
@@ -154,7 +198,7 @@ func (r *DummyReconciler) deploymentForDummy(
 						Image: image,
 						Name:  "dummy-nginx",
 						Ports: []corev1.ContainerPort{{
-							ContainerPort: dummy.Spec.Port,
+							ContainerPort: 80,
 							Name:          "http",
 							Protocol:      "TCP",
 						}},
@@ -163,21 +207,5 @@ func (r *DummyReconciler) deploymentForDummy(
 			},
 		},
 	}
-	// Set the ownerRef for the Deployment
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
-	if err := ctrl.SetControllerReference(dummy, dep, r.Scheme); err != nil {
-		return nil, err
-	}
-	return dep, nil
-}
-
-// imageForMemcached gets the Operand image which is managed by this controller
-// from the DUMMY_IMAGE environment variable defined in the config/manager/manager.yaml
-func imageForDummy() (string, error) {
-	var imageEnvVar = "DUMMY_IMAGE"
-	image, found := os.LookupEnv(imageEnvVar)
-	if !found {
-		return "", fmt.Errorf("Unable to find %s environment variable with the image", imageEnvVar)
-	}
-	return image, nil
+	return newDummyDeployment, nil
 }
