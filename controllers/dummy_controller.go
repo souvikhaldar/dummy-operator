@@ -63,7 +63,8 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			// to the cluster, hence should stop reconciliation.
 			log.Info("Dummy resource not found, stopping reconciliation")
 
-			// now let's check if the deployment for dummy exists. If it does
+			// but before stoping let's check:
+			// if the deployment for dummy exists. If it does
 			// it needs to be deleted
 			err = r.Get(
 				ctx,
@@ -76,25 +77,41 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			if err != nil {
 				if errors.IsNotFound(err) {
 					log.Info("Deployment not found, stoping reconciliation")
+					// no need to do anything further
 					return ctrl.Result{}, nil
-				} else {
-					log.Error(err, "Failed to get the deployment")
-					return ctrl.Result{}, err
 				}
-			} else {
-				log.Info("Deployment exists, need to delete it")
-				if err := r.Delete(ctx, existingDummyDeployment); err != nil {
-					log.Error(err, "Error in deleting the deployment")
-					return ctrl.Result{}, err
-				}
+
+				log.Error(err, "Failed to get the deployment")
+				return ctrl.Result{}, err
+
+			}
+
+			log.Info("Deployment exists, need to delete it")
+			if err := r.Delete(ctx, existingDummyDeployment); err != nil {
+				log.Error(err, "Error in deleting the deployment")
+				return ctrl.Result{}, err
 			}
 
 			return ctrl.Result{}, nil
 		}
+
 		log.Info("Failed to get dummy instance", err)
 		return ctrl.Result{}, err
 	}
+	// Step 2 of the task:
+	// The custom controller must process each Dummy API object simply by logging its name, namespace and
+	// the value of spec.message.
+	log.Info(
+		"STEP 2.",
+		"Name:",
+		dummy.Name,
+		"Namespace:",
+		dummy.Namespace,
+		"spec.message:",
+		dummy.Spec.Message,
+	)
 
+	// Task 1.
 	// copy the value of `message` of `spec` into `specEcho` of `status`
 	dummy.Status.SpecEcho = dummy.Spec.Message
 
