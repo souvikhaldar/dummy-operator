@@ -34,7 +34,8 @@ type DummySpec struct {
 
 // DummyStatus defines the observed state of Dummy
 type DummyStatus struct {
-	SpecEcho string `json:"specEcho,omitempty"`
+	SpecEcho  string `json:"specEcho,omitempty"`
+	PodStatus string `json:"podStatus,omitempty"`
 }
 
 //+kubebuilder:object:root=true

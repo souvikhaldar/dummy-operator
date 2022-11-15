@@ -120,6 +120,15 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// Step 4 of the task:
+	// Create a pod for dummy object
+	// Set the `podStatus` to pending initially
+	dummy.Status.PodStatus = "pending"
+	if err := r.Status().Update(ctx, dummy); err != nil {
+		log.Error(err, "Error in updating status of Dummy")
+		return ctrl.Result{}, err
+	}
+
 	// Check if the deployment already exists, if not create a new one
 	err = r.Get(
 		ctx,
@@ -155,6 +164,13 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			)
 			return ctrl.Result{}, err
 		}
+		// Set the `podStatus` to running
+		dummy.Status.PodStatus = "running"
+		if err := r.Status().Update(ctx, dummy); err != nil {
+			log.Error(err, "Error in updating status of Dummy")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 
 	} else if err != nil {
 		log.Error(err, "Failed to get Deployment")
