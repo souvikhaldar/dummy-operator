@@ -111,9 +111,14 @@ func (r *DummyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		dummy.Spec.Message,
 	)
 
-	// Task 1.
+	// Step 3 of the task:
+	// The custom controller should not only log each Dummy name, namespace and spec.message, it should now also copy the value of spec.message into status.specEcho.
 	// copy the value of `message` of `spec` into `specEcho` of `status`
 	dummy.Status.SpecEcho = dummy.Spec.Message
+	if err := r.Status().Update(ctx, dummy); err != nil {
+		log.Error(err, "Error in updating status of Dummy")
+		return ctrl.Result{}, err
+	}
 
 	// Check if the deployment already exists, if not create a new one
 	err = r.Get(
